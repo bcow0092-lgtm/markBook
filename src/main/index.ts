@@ -22,6 +22,14 @@ function createWindow(): void {
     mainWindow = null
   })
 
+  // 开发模式下把渲染进程的 console 转发到 stdout。CSP 违规、React 报错
+  // 这类信息只出现在 DevTools 里，不转发的话在终端完全看不见。
+  if (process.env.ELECTRON_RENDERER_URL) {
+    mainWindow.webContents.on('console-message', (details) => {
+      console.log(`[renderer:${details.level}] ${details.message}`)
+    })
+  }
+
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -29,8 +37,21 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(createWindow)
+// 单实例锁不是体验优化，是数据正确性的前提（技术方案 §2.3）：
+// 本方案是「内存持有全量 + 防抖落盘」，两个实例会各持一份 library.json
+// 并互相覆盖。
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  })
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+  app.whenReady().then(createWindow)
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit()
+  })
+}
