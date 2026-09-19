@@ -99,13 +99,28 @@ const target = contentDocs[Math.min(1, contentDocs.length - 1)]
 
 // ---- 4. 缺封面、缺作者：验证元数据兜底 ----
 {
-  const entries = source.map((e) => {
-    if (e.name !== opfEntry.name) return e
-    let opf = asText(e)
-      .replace(/<dc:creator[^>]*>[\s\S]*?<\/dc:creator>/g, '')
-      .replace(/<meta[^>]*name="cover"[^>]*\/?>/g, '')
-    return { ...e, data: asBuf(opf) }
+  // 封面在 OPF 里是一整套：meta / 清单项 / spine 项 / reference / 实际文件。
+  // 只删 meta 的话，epub.js 会走兜底探测，在一个「声明没了但文件还在」的
+  // 不完整结构上抛内部错误（实测：replaceCss / navigation 的未处理拒绝）。
+  // 要造出真实的无封面书，这几处必须一起剥干净。
+  const coverHrefs = []
+  let opf = asText(opfEntry)
+    .replace(/<dc:creator[^>]*>[\s\S]*?<\/dc:creator>/g, '')
+    .replace(/<meta[^>]*name="cover"[^>]*\/?>/g, '')
+    .replace(/<reference[^>]*type="cover"[^>]*\/?>/gi, '')
+
+  opf = opf.replace(/<item\b[^>]*\/?>/gi, (tag) => {
+    if (!/cover/i.test(tag)) return tag
+    const href = tag.match(/href="([^"]+)"/)?.[1]
+    if (href) coverHrefs.push(href)
+    return ''
   })
+  opf = opf.replace(/<itemref\b[^>]*\/?>/gi, (tag) => (/cover/i.test(tag) ? '' : tag))
+
+  const entries = source
+    .map((e) => (e.name === opfEntry.name ? { ...e, data: asBuf(opf) } : e))
+    .filter((e) => !coverHrefs.some((h) => e.name.endsWith(h)))
+
   repack(entries, 'no-cover-no-author.epub')
 }
 

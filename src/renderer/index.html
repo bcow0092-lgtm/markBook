@@ -9,13 +9,16 @@
 
       注意 epub.js 把书渲染进 blob/srcdoc iframe，iframe 会继承本页的 CSP，
       所以下面每一条都会同样施加到书籍内容上：
-        style-src ... blob:  —— epub.js 用 blob URL 注入书籍样式表
-        不设 base-uri          —— epub.js 靠设置 document base URI 解析书内相对路径
-      这两条都是 M1 风险验证实测出来的（技术方案 §7.1）。
+        style-src ... blob:    —— epub.js 用 blob URL 注入书籍样式表
+        connect-src ... blob:  —— 封面提取要 fetch(blobUrl)
+        不设 base-uri            —— epub.js 靠设置 document base URI 解析书内相对路径
+      前两条是 M1 风险验证实测出来的（技术方案 §7.1），connect-src 那条是
+      M2 的端到端验证补出来的：M1 只调了 coverUrl() 拿 blob 地址，没有真去
+      fetch 它，所以没暴露。
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' app: data: blob:; font-src 'self' app: data:; frame-src 'self' app: blob:; connect-src 'self' app:; object-src 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' app: data: blob:; font-src 'self' app: data:; frame-src 'self' app: blob:; connect-src 'self' app: blob:; object-src 'none'"
     />
     <title>马克阅读器</title>
   </head>

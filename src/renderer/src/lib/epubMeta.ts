@@ -57,11 +57,13 @@ export async function extractEpubMeta(
     let coverBase64: string | undefined
     let coverExt: string | undefined
     try {
-      const coverUrl = await withTimeout(
-        Promise.race([book.coverUrl(), failed]),
-        timeoutMs,
-        '提取封面',
-      )
+      // epub.js 打开无封面书时会在内部抛未处理的拒绝（见 §8 风险清单），
+      // 与下面这个调用无关 —— 这里挂一个空 catch，只是防止本 promise 晚于
+      // race 结算后变成第二个未处理拒绝。
+      const coverPromise = book.coverUrl()
+      coverPromise.catch(() => {})
+
+      const coverUrl = await withTimeout(Promise.race([coverPromise, failed]), timeoutMs, '提取封面')
       if (coverUrl) {
         const blob = await fetch(coverUrl).then((r) => r.blob())
         coverBase64 = await blobToBase64(blob)
