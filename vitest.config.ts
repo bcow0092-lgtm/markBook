@@ -20,6 +20,7 @@ export default defineConfig({
     // 不全局开 jsdom：它的环境启动开销很大（实测一个文件多花 40 秒）。
     environment: 'node',
     include: ['tests/main/**/*.test.ts', 'tests/renderer/**/*.test.ts', 'tests/renderer/**/*.test.tsx'],
+    setupFiles: ['tests/setup.ts'],
     passWithNoTests: true,
   },
 })

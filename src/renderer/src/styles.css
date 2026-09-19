@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+/*
+  色值与 src/renderer/src/theme.ts 保持一致。
+
+  Tailwind 4 的主题定义在 CSS 里（@theme），而 epub.js 的主题注入
+  （技术方案 §5.3）需要 JS 侧的值，两者没法共用一份。改色时两个文件一起改。
+*/
+@theme {
+  --color-reader-bg: #f7f7f7;
+  --color-reader-text: #2b2b2b;
+  --color-reader-muted: #8a8a8a;
+  --color-reader-accent: #5b7fa6;
+  --color-shelf-bg: #ffffff;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-shelf-bg);
+  color: var(--color-reader-text);
+}
