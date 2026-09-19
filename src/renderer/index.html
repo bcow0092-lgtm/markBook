@@ -6,10 +6,16 @@
       技术方案 §2.2。用 meta 而非 main 进程下发响应头：响应头是 session 级的，
       会把 script-src 'self' 一并施加到 epub.js 的书籍 iframe 上，与 frame-src /
       img-src 需要放宽的场景自相矛盾。meta 的作用域恰好只覆盖本页面。
+
+      注意 epub.js 把书渲染进 blob/srcdoc iframe，iframe 会继承本页的 CSP，
+      所以下面每一条都会同样施加到书籍内容上：
+        style-src ... blob:  —— epub.js 用 blob URL 注入书籍样式表
+        不设 base-uri          —— epub.js 靠设置 document base URI 解析书内相对路径
+      这两条都是 M1 风险验证实测出来的（技术方案 §7.1）。
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' app: data: blob:; font-src 'self' app: data:; frame-src 'self' app: blob:; connect-src 'self' app:; object-src 'none'; base-uri 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' app: data: blob:; font-src 'self' app: data:; frame-src 'self' app: blob:; connect-src 'self' app:; object-src 'none'"
     />
     <title>马克阅读器</title>
   </head>
