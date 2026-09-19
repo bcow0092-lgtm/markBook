@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
+import { registerAppScheme, registerAppProtocol } from './protocol'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -37,6 +38,9 @@ function createWindow(): void {
   }
 }
 
+// 必须在 app ready 之前注册 scheme 的特权
+registerAppScheme()
+
 // 单实例锁不是体验优化，是数据正确性的前提（技术方案 §2.3）：
 // 本方案是「内存持有全量 + 防抖落盘」，两个实例会各持一份 library.json
 // 并互相覆盖。
@@ -49,7 +53,10 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow.focus()
   })
 
-  app.whenReady().then(createWindow)
+  app.whenReady().then(() => {
+    registerAppProtocol(app.getPath('userData'))
+    createWindow()
+  })
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
