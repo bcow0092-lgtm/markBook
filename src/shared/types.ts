@@ -86,20 +86,25 @@ export type IpcChannel = (typeof IPC)[keyof typeof IPC]
 export interface ImportResult {
   id: string
   format: BookFormat
+  /** 原始文件名，含扩展名。TXT 的书名只能从这里推导 */
+  originalName: string
   /** TXT 检测到的原始编码；EPUB 为 null */
   sourceEncoding: string | null
 }
 
-/** 渲染进程解析完元数据后回传给主进程的提交载荷（技术方案 §5.6 第 2 步） */
+/**
+ * 渲染进程解析完元数据后回传给主进程的提交载荷（技术方案 §5.6 第 2 步）。
+ *
+ * 只包含渲染进程独有的东西 —— 格式、原始文件名、原始编码、章节索引都由
+ * 主进程在 import 阶段就掌握了，让它们绕一圈回来是无谓的 IPC 往返。
+ */
 export interface CommitPayload {
   title: string
   author: string
-  /** 封面图片的 base64 内容，无封面时为 null */
-  coverBase64: string | null
-  /** 封面扩展名（png / jpg / gif），无封面时为 null */
-  coverExt: string | null
-  /** 仅 TXT：章节索引 */
-  chapters: ChapterFile | null
+  /** 封面图片的 base64 内容，无封面时省略 */
+  coverBase64?: string
+  /** 封面扩展名（png / jpg / gif），无封面时省略 */
+  coverExt?: string
 }
 
 /**

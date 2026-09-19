@@ -1,4 +1,4 @@
-import { copyFile, rename, writeFile, rm, mkdir } from 'node:fs/promises'
+import { copyFile, rename, writeFile, rm, mkdir, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { BookFormat, ChapterFile } from '@shared/types'
 import type { AppPaths } from './paths'
@@ -35,6 +35,21 @@ export function createBookFiles(paths: AppPaths): BookFiles {
   const stagedOriginal = (id: string, format: BookFormat): string =>
     join(paths.staging, `${id}.${format}`)
   const stagedUtf8 = (id: string): string => join(paths.staging, `${id}.utf8.txt`)
+
+  /**
+   * 清掉该 id 在 staging 下的全部残留。
+   *
+   * 按前缀清扫而不是写死文件名：staging 里的产物种类会随功能增加（现在有
+   * `.staged.json` 描述符等），写死的话每加一种就得改一次，漏改就是磁盘泄漏。
+   * commit 与 abort 都调它，两者结束后 staging 对该 id 都是空的。
+   */
+  async function sweepStaged(id: string): Promise<void> {
+    const prefix = `${id}.`
+    const entries = await readdir(paths.staging).catch(() => [] as string[])
+    for (const entry of entries) {
+      if (entry.startsWith(prefix)) await rmQuiet(join(paths.staging, entry))
+    }
+  }
 
   return {
     async stageFile(srcPath, id, format) {
@@ -73,6 +88,10 @@ export function createBookFiles(paths: AppPaths): BookFiles {
         }
       }
 
+      // 该搬的都搬完了，清掉描述符这类不再需要的中间产物。
+      // 放在最后：中途失败时 staging 保持原样，交给 abort 或下次启动清理。
+      await sweepStaged(id)
+
       return {
         fileName,
         coverFileName,
@@ -81,9 +100,7 @@ export function createBookFiles(paths: AppPaths): BookFiles {
     },
 
     async abort(id) {
-      await rmQuiet(stagedOriginal(id, 'epub'))
-      await rmQuiet(stagedOriginal(id, 'txt'))
-      await rmQuiet(stagedUtf8(id))
+      await sweepStaged(id)
     },
 
     async remove(id, format, coverFileName) {
