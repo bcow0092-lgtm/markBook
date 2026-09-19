@@ -1,7 +1,8 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { registerAppScheme, registerAppProtocol } from './protocol'
-import { clearStaging, createPaths, ensureDirs } from './services/paths'
+import { createContext } from './services/context'
+import { registerLibraryIpc } from './ipc/library'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -55,11 +56,10 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.whenReady().then(async () => {
-    const paths = createPaths(app.getPath('userData'))
-    await ensureDirs(paths)
-    // 清掉上次运行中途崩溃留下的半成品（技术方案 §5.6）
-    await clearStaging(paths)
-    registerAppProtocol(paths.root)
+    // 建目录、清 staging、加载书架数据，一站式
+    const ctx = await createContext(app.getPath('userData'))
+    registerAppProtocol(ctx.paths.root)
+    registerLibraryIpc(ctx)
     createWindow()
   })
 
