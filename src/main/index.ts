@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { registerAppScheme, registerAppProtocol } from './protocol'
+import { clearStaging, createPaths, ensureDirs } from './services/paths'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -53,8 +54,12 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow.focus()
   })
 
-  app.whenReady().then(() => {
-    registerAppProtocol(app.getPath('userData'))
+  app.whenReady().then(async () => {
+    const paths = createPaths(app.getPath('userData'))
+    await ensureDirs(paths)
+    // 清掉上次运行中途崩溃留下的半成品（技术方案 §5.6）
+    await clearStaging(paths)
+    registerAppProtocol(paths.root)
     createWindow()
   })
 
