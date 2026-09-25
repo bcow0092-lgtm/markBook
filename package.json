@@ -44,7 +44,7 @@
     "verify": "npm run lint && npm run typecheck && npm run test",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "make:icon": "node scripts/make-icon.mjs",
-    "build:win": "npm run build && electron-builder --win"
+    "build:win": "npm run build && electron-builder --win --publish never"
   },
   "productName": "Mark Reader",
   "description": "轻量的 Windows 桌面电子书阅读器",
