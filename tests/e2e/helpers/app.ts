@@ -45,6 +45,12 @@ export async function launchApp(opts: LaunchOptions = {}): Promise<TestApp> {
   })
 
   const page = await app.firstWindow()
+
+  // 把渲染进程的 console 与未捕获错误转出来。E2E 失败时最需要的往往就是
+  // 这几行 —— 没有它，断言失败时只剩一个「元素没出现」，无从下手
+  page.on('console', (m) => console.log(`[renderer:${m.type()}] ${m.text()}`))
+  page.on('pageerror', (e) => console.log(`[pageerror] ${e.message}`))
+
   await page.waitForLoadState('domcontentloaded')
 
   const readLibrary = async (): Promise<LibraryData> =>
@@ -100,4 +106,23 @@ export async function waitForFile(path: string, timeoutMs = 5_000): Promise<void
       await new Promise((r) => setTimeout(r, 50))
     }
   }
+}
+
+/**
+ * 等书真正渲染出来。
+ *
+ * **不能只等 `progress-label`**：那是进度条里的元素，书还没加载完它就已经在
+ * 了。这时候按翻页键是白按 —— 引擎还没就绪，`relocated` 不会触发。
+ *
+ * **也不能等正文容器**（EPUB 的 iframe / TXT 的 `.txt-columns`）：容器建出来
+ * 时 `display()` 可能还没跑完，同样会漏按键。
+ *
+ * **更不能等章节名**：起始页的章节名本来就是空的（第一条 spine 通常是封面
+ * 或版权页，它不在目录里，findCurrentChapter 返回空是正确的）。
+ *
+ * 所以等阅读页的 `aria-busy` 落到 false —— 引擎的 `load()` 承诺「内容已经
+ * 渲染出来」，阅读页就是在那时解除忙碌的。
+ */
+export async function waitBookLoaded(page: Page, timeoutMs = 30_000): Promise<void> {
+  await page.locator('[aria-busy="false"]').waitFor({ state: 'attached', timeout: timeoutMs })
 }

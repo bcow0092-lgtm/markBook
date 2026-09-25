@@ -1,6 +1,7 @@
 import ePub from 'epubjs'
 import type { ReaderSettings, ReadingProgress } from '@shared/types'
 import { PAGE_MARGIN_PX } from '../../lib/readerSettings'
+import { withTimeout } from '../../lib/withTimeout'
 import {
   estimatePercentage,
   findCurrentChapter,
@@ -170,6 +171,14 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
       if (destroyed || book !== b) return
       spineLength = spineOf(b).length ?? 0
 
+      // 目录必须在 display 之前装好。反过来的话首次 relocated 会在 toc 还是
+      // 空的时候触发，findCurrentChapter 只能返回空标题 —— 表现为打开一本书
+      // 之后章节名一直显示占位文案，要等用户翻一页才出现
+      const nav = await b.loaded.navigation
+      if (destroyed || book !== b) return
+      toc = flattenToc((nav.toc ?? []) as TocNode[], (t) => spineOf(b).get(t))
+      opts.callbacks.onToc(toc)
+
       rendition.on('relocated', (loc: unknown) => {
         // StrictMode 双挂载下，被销毁的那个引擎仍可能收到事件
         if (destroyed) return
@@ -178,11 +187,14 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
         opts.callbacks.onRelocated(progressFromLocation(start))
       })
 
-      display(location === null ? undefined : String(location))
-
-      const nav = await b.loaded.navigation
-      toc = flattenToc((nav.toc ?? []) as TocNode[], (t) => spineOf(b).get(t))
-      opts.callbacks.onToc(toc)
+      // 等首次渲染完成再让 load() 落地 —— 这样「load 已完成」就等于
+      // 「内容已经显示出来了」，调用方（以及 E2E）才有可靠的就绪信号。
+      // 加超时是因为 §7.1 实测 display() 在畸形书上既不 resolve 也不 reject
+      await withTimeout(
+        rendition.display(location === null ? undefined : String(location)),
+        15_000,
+        '首次渲染',
+      ).catch(() => {})
 
       void setupLocations()
     },

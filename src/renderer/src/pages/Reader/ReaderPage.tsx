@@ -31,6 +31,9 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
   const [tocOpen, setTocOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  // 书还没渲染完时置为忙碌。用 aria-busy 而不是自定义属性 —— 它本来就是
+  // 「这个区域正在更新」的标准表达，顺带给读屏软件也传达了状态
+  const [ready, setReady] = useState(false)
 
   const settings = useSettingsStore((s) => s.settings)
   const loadSettings = useSettingsStore((s) => s.load)
@@ -92,8 +95,11 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
 
     engine
       .load(b, b.progress?.location ?? null)
-      // 书加载完再应用设置：此时引擎才有 rendition / columns 可写
-      .then(() => engine.applySettings(settingsRef.current))
+      .then(() => {
+        // 引擎的 load() 承诺「内容已经渲染出来」，所以这里才是真正就绪
+        engine.applySettings(settingsRef.current)
+        setReady(true)
+      })
       .catch((err: unknown) => {
         console.error('[reader] 打开失败', err)
         setLoadError(err instanceof Error ? err.message : String(err))
@@ -151,7 +157,10 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[var(--color-reader-bg)]">
+    <div
+      aria-busy={!ready}
+      className="relative h-screen w-screen overflow-hidden bg-[var(--color-reader-bg)]"
+    >
       <div ref={containerRef} className="h-full w-full" />
 
       <ClickZones
