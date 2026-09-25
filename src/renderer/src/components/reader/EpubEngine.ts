@@ -154,6 +154,11 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
         handleContent,
       )
 
+      // 必须等书加载完再读 spine —— 在 renderTo 之后立刻读会拿到 0。
+      // spineLength 为 0 时 seekTarget 会退化成「跳到第一章」，表现为拖进度
+      // 条总是回到封面；estimatePercentage 也会恒为 0。
+      await b.ready
+      if (destroyed || book !== b) return
       spineLength = spineOf(b).length ?? 0
 
       rendition.on('relocated', (loc: unknown) => {
