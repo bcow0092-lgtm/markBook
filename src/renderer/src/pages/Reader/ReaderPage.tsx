@@ -3,6 +3,7 @@ import type { Book, ReadingProgress } from '@shared/types'
 import { createEpubEngine } from '../../components/reader/EpubEngine'
 import type { ReaderEngine } from '../../components/reader/engine'
 import type { IndexedTocEntry } from '../../lib/readerProgress'
+import { createProgressSaver, type ProgressSaver } from '../../lib/progressSaver'
 import { ClickZones } from '../../components/reader/ClickZones'
 import { ProgressBar } from '../../components/reader/ProgressBar'
 import { TocPanel } from '../../components/reader/TocPanel'
@@ -17,6 +18,7 @@ interface Props {
 export function ReaderPage({ book, onBack, onProgress }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<ReaderEngine | null>(null)
+  const saverRef = useRef<ProgressSaver | null>(null)
   const [toc, setToc] = useState<IndexedTocEntry[]>([])
   const [chapterIndex, setChapterIndex] = useState(-1)
   const [chapterTitle, setChapterTitle] = useState('')
@@ -40,6 +42,9 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
     const b = bookRef.current
     if (!container) return
 
+    const saver = createProgressSaver(window.api, b.id)
+    saverRef.current = saver
+
     const engine = createEpubEngine({
       container,
       loadLocations: () => window.api.getLocations(b.id),
@@ -50,6 +55,7 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
           setExact(p.percentageExact)
           setChapterIndex(p.chapterIndex)
           setChapterTitle(p.chapterTitle)
+          saver.push(p)
           onProgressRef.current(p)
         },
         onToc: setToc,
@@ -62,12 +68,22 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
     })
 
     const onResize = (): void => engine.resize()
+    const onBeforeUnload = (): void => {
+      // 尽力而为：异步 IPC 在 beforeunload 里不保证送达，真正的兜底是
+      // 1 秒的防抖窗口（技术方案 §5.5）
+      void saver.flush()
+    }
     window.addEventListener('resize', onResize)
+    window.addEventListener('beforeunload', onBeforeUnload)
 
     return () => {
       window.removeEventListener('resize', onResize)
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      void saver.flush()
+      saver.dispose()
       engine.destroy()
       engineRef.current = null
+      saverRef.current = null
     }
   }, [book.id])
 
@@ -87,6 +103,12 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  /** 先把进度落盘再退出，否则回到书架时角标与排序还是旧的 */
+  const handleBack = async (): Promise<void> => {
+    await saverRef.current?.flush()
+    onBack()
+  }
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[var(--color-reader-bg)]">
       <div ref={containerRef} className="h-full w-full" />
@@ -100,7 +122,7 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
       <ReaderToolbar
         visible={controlsVisible}
         chapterTitle={chapterTitle}
-        onBack={onBack}
+        onBack={() => void handleBack()}
         onOpenToc={() => setTocOpen(true)}
       />
 

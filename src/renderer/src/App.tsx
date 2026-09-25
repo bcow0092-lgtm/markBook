@@ -8,6 +8,7 @@ export default function App() {
   const books = useLibraryStore((s) => s.books)
   const currentBookId = useLibraryStore((s) => s.currentBookId)
   const backToShelf = useLibraryStore((s) => s.backToShelf)
+  const refresh = useLibraryStore((s) => s.refresh)
   const setReaderProgress = useReaderStore((s) => s.setProgress)
 
   const current = books.find((b) => b.id === currentBookId)
@@ -15,9 +16,12 @@ export default function App() {
     return (
       <ReaderPage
         book={current}
-        onBack={backToShelf}
-        // M3 的这个任务只把进度收进 store 供 UI 显示；
-        // 落盘（防抖 + 退出时 flush）在 Task 6 接进 ReaderPage
+        onBack={() => {
+          backToShelf()
+          // 读过的书要按最近阅读排到前面（§3.2），进度角标也要更新。
+          // ReaderPage 内部已经先 flush 过进度，这里刷新读到的是新值。
+          void refresh()
+        }}
         onProgress={setReaderProgress}
       />
     )
