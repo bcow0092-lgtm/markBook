@@ -21,4 +21,25 @@ jobs:
       - run: npm ci
       - run: npm run verify
 
-  # E2E（§6.3 的 P0 两条）与打包产物验证待 M3 有可测主链路后再接
+  package:
+    # 只手动触发：打包要下载 electron / nsis / 7zip 等一堆工具，耗时几分钟，
+    # 日常 PR 与 push 不该跑它（§6.5 的档位表）
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mark-reader-windows
+          # 只要安装包与免安装版，不要 100MB 的 win-unpacked 中间产物
+          path: |
+            release/*.exe
+          if-no-files-found: error
+
+# E2E（§6.3 的 5 条）尚未接 —— 需要先把 Playwright 的测试基建搭起来，另起一轮。
