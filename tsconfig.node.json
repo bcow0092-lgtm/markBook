@@ -20,6 +20,7 @@
     "src/preload/**/*",
     "src/shared/**/*",
     "tests/main/**/*",
+    "tests/e2e/**/*",
     "*.config.ts"
   ]
 }
