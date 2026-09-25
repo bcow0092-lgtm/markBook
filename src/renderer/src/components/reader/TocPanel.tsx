@@ -29,7 +29,7 @@ export function TocPanel({ entries, currentIndex, onSelect, onClose }: Props) {
         ) : (
           entries.map((entry, i) => (
             <button
-              key={`${entry.spineIndex}-${i}`}
+              key={`${entry.index}-${i}`}
               type="button"
               aria-current={i === currentIndex ? 'true' : undefined}
               onClick={() => onSelect(i)}

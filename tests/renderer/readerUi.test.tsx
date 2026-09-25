@@ -85,8 +85,8 @@ describe('ProgressBar', () => {
 
 describe('TocPanel', () => {
   const entries = [
-    { title: '第一章', spineIndex: 0 },
-    { title: '第二章', spineIndex: 3 },
+    { title: '第一章', index: 0 },
+    { title: '第二章', index: 3 },
   ]
 
   it('渲染全部目录项', () => {

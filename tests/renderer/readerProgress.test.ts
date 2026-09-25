@@ -82,36 +82,36 @@ describe('seekTarget —— 拖拽跳转的目标决策', () => {
 
 describe('findCurrentChapter', () => {
   const toc: IndexedTocEntry[] = [
-    { title: '第一章', spineIndex: 0 },
-    { title: '第二章', spineIndex: 3 },
-    { title: '第三章', spineIndex: 7 },
+    { title: '第一章', index: 0 },
+    { title: '第二章', index: 3 },
+    { title: '第三章', index: 7 },
   ]
 
   it('落在某一章的区间内时取该章', () => {
-    expect(findCurrentChapter(toc, 4)).toEqual({ index: 1, title: '第二章' })
+    expect(findCurrentChapter(toc, 4)).toEqual({ tocIndex: 1, title: '第二章' })
   })
 
   it('正好在章节起点时取该章', () => {
-    expect(findCurrentChapter(toc, 3)).toEqual({ index: 1, title: '第二章' })
+    expect(findCurrentChapter(toc, 3)).toEqual({ tocIndex: 1, title: '第二章' })
   })
 
   it('在第一章之前时返回空', () => {
-    expect(findCurrentChapter(toc, -1)).toEqual({ index: -1, title: '' })
+    expect(findCurrentChapter(toc, -1)).toEqual({ tocIndex: -1, title: '' })
   })
 
   it('在最后一章之后时取最后一章', () => {
-    expect(findCurrentChapter(toc, 99)).toEqual({ index: 2, title: '第三章' })
+    expect(findCurrentChapter(toc, 99)).toEqual({ tocIndex: 2, title: '第三章' })
   })
 
-  it('跳过 spine 序号为 -1 的项（目录里有指向不存在章节的条目）', () => {
+  it('跳过位置为 -1 的项（目录里有指向不存在章节的条目）', () => {
     const dirty: IndexedTocEntry[] = [
-      { title: '坏的', spineIndex: -1 },
-      { title: '好的', spineIndex: 2 },
+      { title: '坏的', index: -1 },
+      { title: '好的', index: 2 },
     ]
-    expect(findCurrentChapter(dirty, 5)).toEqual({ index: 1, title: '好的' })
+    expect(findCurrentChapter(dirty, 5)).toEqual({ tocIndex: 1, title: '好的' })
   })
 
   it('空目录不抛异常', () => {
-    expect(findCurrentChapter([], 3)).toEqual({ index: -1, title: '' })
+    expect(findCurrentChapter([], 3)).toEqual({ tocIndex: -1, title: '' })
   })
 })

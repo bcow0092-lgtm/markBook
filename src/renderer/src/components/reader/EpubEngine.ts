@@ -67,7 +67,7 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
       location: start.cfi ?? '',
       percentage,
       percentageExact: indexReady,
-      chapterIndex: chapter.index,
+      chapterIndex: chapter.tocIndex,
       chapterTitle: chapter.title,
     }
   }
@@ -188,9 +188,9 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
 
     goToChapter(index) {
       const entry = toc[index]
-      if (!entry || entry.spineIndex < 0 || !book) return
+      if (!entry || entry.index < 0 || !book) return
       // 用 spine 里的 href 而不是目录项原始的 — 后者常带锚点
-      const section = spineOf(book).get(entry.spineIndex)
+      const section = spineOf(book).get(entry.index)
       if (section?.href) display(section.href)
     },
 
@@ -253,6 +253,6 @@ function flattenToc(
 
   return flat.map((e) => ({
     title: e.title,
-    spineIndex: getSection(e.href)?.index ?? -1,
+    index: getSection(e.href)?.index ?? -1,
   }))
 }
