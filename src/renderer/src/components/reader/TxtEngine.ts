@@ -1,4 +1,5 @@
-import type { ChapterFile, ReadingProgress } from '@shared/types'
+import type { ChapterFile, ReaderSettings, ReadingProgress } from '@shared/types'
+import { PAGE_MARGIN_PX } from '../../lib/readerSettings'
 import { findCurrentChapter, seekTarget, type IndexedTocEntry } from '../../lib/readerProgress'
 import {
   chapterIndexOf,
@@ -191,6 +192,30 @@ export function createTxtEngine(opts: EngineOptions): ReaderEngine {
       applyGeometry()
       measurePages()
       paint()
+    },
+
+    applySettings(settings: ReaderSettings) {
+      columns.style.fontSize = `${settings.fontSize}px`
+      columns.style.lineHeight = String(settings.lineHeight)
+      // 页边距做成段落的左右 padding，而不是把容器变窄再居中：列几何与页宽
+      // 严格绑定（§5.4 的约束），变窄再居中会让翻页时相邻列从留白区露出来
+      columns.style.setProperty('--txt-margin', `${PAGE_MARGIN_PX[settings.pageMargin]}px`)
+
+      // 位置保持：记住当前字符偏移，重排后回到它所在的页。这是近似值 ——
+      // 与 txtPaging 的页码换算同一套取舍，误差上限是一页宽度
+      const keep = currentOffset()
+      applyGeometry()
+      measurePages()
+
+      const ch = chapters.chapters[currentChapter]
+      if (ch) {
+        const length = ch.end - ch.start
+        const ratio = length > 0 ? (keep - ch.start) / length : 0
+        pageIndex = Math.min(pageCount - 1, Math.max(0, Math.round(ratio * pageCount)))
+      }
+
+      paint()
+      emitProgress()
     },
 
     locationsReady: () => true,

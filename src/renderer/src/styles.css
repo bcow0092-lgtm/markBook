@@ -43,7 +43,11 @@ body {
 }
 
 .txt-columns p {
+  /* --txt-margin 由 TxtEngine 按「页边距」设置写入 */
   margin: 0 0 0.8em;
+  padding: 0 var(--txt-margin, 56px);
+  box-sizing: border-box;
   text-indent: 2em;
+  /* 行距的兜底值：TxtEngine.applySettings 会在元素上行内覆盖它 */
   line-height: 1.8;
 }

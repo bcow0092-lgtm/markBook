@@ -1,4 +1,4 @@
-import type { Book, ReadingProgress } from '@shared/types'
+import type { Book, ReaderSettings, ReadingProgress } from '@shared/types'
 import type { IndexedTocEntry } from '../../lib/readerProgress'
 
 export interface ReaderEngineCallbacks {
@@ -25,6 +25,14 @@ export interface ReaderEngine {
   goToPercentage(percentage: number): void
   /** 容器尺寸变化后重新分页 */
   resize(): void
+  /**
+   * 应用阅读设置（§5.3）。
+   *
+   * **内部负责「记录当前位置 → 应用新样式 → 恢复到同一处」。** 改字号/行距/
+   * 页边距都会让文本重排，不做这一步用户每调一次就跳页（§5.2 的坑 2）。
+   * EPUB 与 TXT 两侧都要踩同一个坑，关在各自实现里这段逻辑只写一次。
+   */
+  applySettings(settings: ReaderSettings): void
   /** 位置索引是否已就绪，决定进度是否带 ~ 前缀 */
   locationsReady(): boolean
   destroy(): void

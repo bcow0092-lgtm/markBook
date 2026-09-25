@@ -1,5 +1,6 @@
 import ePub from 'epubjs'
-import type { ReadingProgress } from '@shared/types'
+import type { ReaderSettings, ReadingProgress } from '@shared/types'
+import { PAGE_MARGIN_PX } from '../../lib/readerSettings'
 import {
   estimatePercentage,
   findCurrentChapter,
@@ -219,6 +220,30 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
       // 而且传略比让它自己猜更可控
       const el = opts.container
       void rendition?.resize(el.clientWidth, el.clientHeight)
+    },
+
+    applySettings(settings: ReaderSettings) {
+      if (!book || !rendition || destroyed) return
+
+      // 先记住现在读到哪了。改样式会让文本重排，不记就跳页（§5.2 的坑 2）
+      const loc = rendition.currentLocation() as RelocatedLike | undefined
+      const cfi = loc?.start?.cfi
+
+      const themes = rendition.themes as unknown as {
+        fontSize(px: string): void
+        override(name: string, value: string): void
+      }
+      themes.fontSize(`${settings.fontSize}px`)
+      themes.override('line-height', String(settings.lineHeight))
+      const px = PAGE_MARGIN_PX[settings.pageMargin]
+      themes.override('padding-left', `${px}px`)
+      themes.override('padding-right', `${px}px`)
+
+      rendition.resize(opts.container.clientWidth, opts.container.clientHeight)
+
+      // 回到同一处。布局变了，用原 cfi 重新定位即可 —— epub.js 会把它映射到
+      // 新布局下最接近的位置
+      if (cfi) display(cfi)
     },
 
     locationsReady: () => indexReady,
