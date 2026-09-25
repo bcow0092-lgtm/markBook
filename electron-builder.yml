@@ -1,0 +1,39 @@
+appId: com.bcow0092.markreader
+productName: Mark Reader
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+# 打进包里的只有构建产物与 package.json。
+# 源码、测试、样本、脚本都不进安装包。
+files:
+  - out/**
+  - package.json
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  # 一键安装、按用户装：不需要管理员权限，也不弹向导
+  oneClick: true
+  perMachine: false
+  # allowToChangeInstallationDirectory 只对 assisted 安装生效。这里显式写成
+  # false，免得后来人以为漏配了
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  # 给用户看的名字用中文；productName 保持 ASCII，因为它是路径
+  shortcutName: 马克阅读器
+  artifactName: ${productName}-Setup-${version}.${ext}
+  # 卸载时不要动 %APPDATA%\Mark Reader —— 那里是用户的书籍与阅读进度
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}

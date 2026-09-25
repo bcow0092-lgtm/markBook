@@ -9,6 +9,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
@@ -42,7 +43,10 @@
     "test:e2e": "playwright test",
     "verify": "npm run lint && npm run typecheck && npm run test",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
-    "make:icon": "node scripts/make-icon.mjs"
+    "make:icon": "node scripts/make-icon.mjs",
+    "build:win": "npm run build && electron-builder --win"
   },
-  "productName": "Mark Reader"
+  "productName": "Mark Reader",
+  "description": "轻量的 Windows 桌面电子书阅读器",
+  "author": "bcow0092-lgtm"
 }
