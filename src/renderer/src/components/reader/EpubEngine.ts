@@ -31,7 +31,8 @@ type LocationsLike = {
 }
 type TocNode = { label?: string; href?: string; subitems?: TocNode[] }
 type ContentsLike = { document: Document }
-type RelocatedLike = { start?: { cfi?: string; index?: number } }
+type RelocatedStart = { cfi?: string; index?: number; percentage?: number }
+type RelocatedLike = { start?: RelocatedStart }
 
 export function createEpubEngine(opts: EngineOptions): ReaderEngine {
   let book: ReturnType<typeof ePub> | null = null
@@ -45,16 +46,26 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
   const locationsOf = (b: ReturnType<typeof ePub>): LocationsLike =>
     b.locations as unknown as LocationsLike
 
-  function currentProgress(spineIndex: number, cfi: string): ReadingProgress {
+  /**
+   * 用 relocated 事件给的 start 组装进度。
+   *
+   * 百分比**不用** `locations.percentageFromCfi(cfi)` —— 那是 §5.2 原本写的
+   * 做法，实测会给出离谱的值（第一页算出 50%）。原因是 epub.js 的
+   * `locationFromCfi` 拿 CFI 做**字符串比较**，而 relocated 给的是点 CFI、
+   * 索引里存的是带逗号的区间 CFI，比较结果会跑偏。
+   *
+   * relocated 载荷里的 `start.percentage` 是 epub.js 自己算好的，实测正确，
+   * 直接用它。
+   */
+  function progressFromLocation(start: RelocatedStart): ReadingProgress {
+    const spineIndex = start.index ?? 0
     const chapter = findCurrentChapter(toc, spineIndex)
-    const raw =
-      indexReady && book
-        ? locationsOf(book).percentageFromCfi(cfi)
-        : estimatePercentage(spineIndex, spineLength)
+    const percentage = indexReady
+      ? clamp01(start.percentage ?? 0)
+      : estimatePercentage(spineIndex, spineLength)
     return {
-      location: cfi,
-      // percentageFromCfi 对越界的 cfi 会返回 NaN
-      percentage: Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0,
+      location: start.cfi ?? '',
+      percentage,
       percentageExact: indexReady,
       chapterIndex: chapter.index,
       chapterTitle: chapter.title,
@@ -64,16 +75,22 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
   /** 索引生成完成后用它重发一次进度，让 UI 从 ~35% 收敛到 35% */
   function reemitWithExactPercentage(): void {
     if (!rendition || destroyed) return
-    const loc = rendition.currentLocation() as RelocatedLike | undefined
-    if (!loc?.start?.cfi) return
-    opts.callbacks.onRelocated(currentProgress(loc.start.index ?? 0, loc.start.cfi))
+    try {
+      const loc = rendition.currentLocation() as RelocatedLike | undefined
+      if (!loc?.start?.cfi) return
+      opts.callbacks.onRelocated(progressFromLocation(loc.start))
+    } catch {
+      // StrictMode 下引擎可能已被销毁但异步回调仍在跑，此时 epub.js 的
+      // 内部对象已经拆掉，调它会抛。忽略即可 —— 这个引擎已经没用了
+    }
   }
 
   async function setupLocations(): Promise<void> {
     const b = book
     if (!b) return
     const saved = await opts.loadLocations().catch(() => null)
-    if (destroyed || !book) return
+    // await 之后必须重查 —— StrictMode 双挂载时，这个引擎可能已经被销毁了
+    if (destroyed || book !== b) return
 
     if (saved) {
       try {
@@ -90,7 +107,7 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
     void locationsOf(b)
       .generate(1024)
       .then(async () => {
-        if (destroyed || !book) return
+        if (destroyed || book !== b) return
         indexReady = true
         reemitWithExactPercentage()
         await opts.saveLocations(locationsOf(b).save()).catch(() => {})
@@ -108,6 +125,7 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
     doc.head?.appendChild(style)
 
     for (const table of Array.from(doc.querySelectorAll('table'))) {
+      // 同一个章节被重复渲染时不要重复包裹
       if (table.parentElement?.classList.contains('epub-table-scroll')) continue
       const wrap = doc.createElement('div')
       wrap.className = 'epub-table-scroll'
@@ -139,9 +157,11 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
       spineLength = spineOf(b).length ?? 0
 
       rendition.on('relocated', (loc: unknown) => {
+        // StrictMode 双挂载下，被销毁的那个引擎仍可能收到事件
+        if (destroyed) return
         const start = (loc as RelocatedLike).start
         if (!start?.cfi) return
-        opts.callbacks.onRelocated(currentProgress(start.index ?? 0, start.cfi))
+        opts.callbacks.onRelocated(progressFromLocation(start))
       })
 
       display(location === null ? undefined : String(location))
@@ -205,6 +225,11 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
       rendition = null
     },
   }
+}
+
+function clamp01(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.min(1, Math.max(0, n))
 }
 
 /** 把 epub.js 的嵌套目录拍平，并标出每一项落在 spine 的哪一节 */
