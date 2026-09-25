@@ -26,9 +26,13 @@ function createWindow(): void {
     mainWindow = null
   })
 
-  // 开发模式下把渲染进程的 console 转发到 stdout。CSP 违规、React 报错
-  // 这类信息只出现在 DevTools 里，不转发的话在终端完全看不见。
-  if (process.env.ELECTRON_RENDERER_URL) {
+  // 把渲染进程的 console 转发到 stdout。CSP 违规、React 报错这类信息只出现
+  // 在 DevTools 里，不转发的话在终端完全看不见。
+  //
+  // 用 app.isPackaged 而不是 ELECTRON_RENDERER_URL 判断：后者在生产模式下
+  // 不存在，而那正是最需要看到渲染进程日志的时候（打包后 origin 从 http 变成
+  // file，CSP 与 CORS 的行为都可能不同）。真正打包后没有 stdout，转了也没人看。
+  if (!app.isPackaged) {
     mainWindow.webContents.on('console-message', (details) => {
       console.log(`[renderer:${details.level}] ${details.message}`)
     })

@@ -155,6 +155,10 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
         height: '100%',
       })
 
+      // 等 attach 完成再往下走（见 waitAttached 的说明）
+      await waitAttached(rendition)
+      if (destroyed || book !== b) return
+
       ;(rendition.hooks.content as unknown as { register(fn: unknown): void }).register(
         handleContent,
       )
@@ -259,6 +263,36 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
       rendition = null
     },
   }
+}
+
+/**
+ * 等 rendition 完成 attach。
+ *
+ * epub.js 的 `renderTo()` 立刻返回 Rendition，但内部的 `manager` 是稍后由
+ * `Rendition.start()` 才创建的。`display()` / `prev()` / `next()` 走 rendition
+ * 自己的队列，会排在 manager 就绪之后，所以没事；而 `currentLocation()` /
+ * `resize()` / `themes.*` **直接访问 `this.manager`、不排队**，早调就抛
+ * 「Cannot read properties of undefined (reading 'currentLocation')」。
+ *
+ * **这是个只在特定时序下暴露的竞态。** 开发模式下 `load()` 里的几次 await
+ * （`book.ready`、`loaded.navigation`）恰好给了队列足够时间，所以从 M3 到
+ * M5 一直没踩到；生产模式下时序不同，一开书就炸。
+ */
+function waitAttached(rendition: unknown, timeoutMs = 10_000): Promise<void> {
+  const r = rendition as {
+    manager?: unknown
+    on(event: string, cb: () => void): void
+  }
+  // 已经 attach 过就直接返回 —— 只挂监听的话会永远等下去
+  if (r.manager) return Promise.resolve()
+
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('阅读器初始化超时')), timeoutMs)
+    r.on('attached', () => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
 }
 
 function clamp01(n: number): number {
