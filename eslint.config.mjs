@@ -20,12 +20,12 @@ export default tseslint.config(
   // 测试与构建脚本跑在 Node 里（样本生成器用了 Buffer），
   // 不给它们设 globals 会被 no-undef 全量报错
   {
-    files: ['tests/**/*.{ts,mjs,js}', '*.config.{ts,mjs,js}', 'eslint.config.mjs'],
+    files: ['tests/**/*.{ts,mjs,js}', 'scripts/**/*.mjs', '*.config.{ts,mjs,js}', 'eslint.config.mjs'],
     languageOptions: { globals: globals.node },
   },
 
   {
-    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,mjs,js}'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,mjs,js}', 'scripts/**/*.mjs'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
