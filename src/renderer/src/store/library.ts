@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Book } from '@shared/types'
+import { sortByRecentRead } from '../lib/sortBooks'
 
 export type AppView = 'shelf' | 'reader'
 
@@ -25,7 +26,9 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   async refresh() {
     set({ loading: true, error: null })
     try {
-      set({ books: await window.api.listBooks(), loading: false })
+      // 排序放在渲染进程而不是仓储：§3.2 说「默认按最近阅读」，M5 可能加
+      // 别的排序方式，仓储的 listBooks 应当保持「全部书籍」这个朴素语义
+      set({ books: sortByRecentRead(await window.api.listBooks()), loading: false })
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err), loading: false })
     }
