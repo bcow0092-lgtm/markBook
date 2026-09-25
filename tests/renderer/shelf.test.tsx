@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import { ShelfPage } from '../../src/renderer/src/pages/Shelf/ShelfPage'
 import { useLibraryStore } from '../../src/renderer/src/store/library'
-import type { Book, MarkReaderApi, ReaderSettings } from '@shared/types'
+import { makeApi } from './makeApi'
+import type { Book, MarkReaderApi } from '@shared/types'
 
 const book = (over: Partial<Book> = {}): Book => ({
   id: 'a',
@@ -22,22 +23,7 @@ const book = (over: Partial<Book> = {}): Book => ({
 })
 
 function installApi(books: Book[]): MarkReaderApi {
-  const api: MarkReaderApi = {
-    listBooks: vi.fn(async () => books),
-    importBook: vi.fn(async () => null),
-    commitImport: vi.fn(async () => book()),
-    abortImport: vi.fn(async () => {}),
-    deleteBook: vi.fn(async () => {}),
-    saveProgress: vi.fn(async () => {}),
-    getSettings: vi.fn(
-      async (): Promise<ReaderSettings> => ({
-        fontSize: 18,
-        lineHeight: 1.8,
-        pageMargin: 'medium',
-      }),
-    ),
-    saveSettings: vi.fn(async () => {}),
-  }
+  const api = makeApi({ listBooks: vi.fn(async () => books) })
   window.api = api
   return api
 }

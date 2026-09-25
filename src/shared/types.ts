@@ -75,6 +75,8 @@ export const IPC = {
   booksCommit: 'books:commit',
   booksAbort: 'books:abort',
   booksDelete: 'books:delete',
+  locationsGet: 'locations:get',
+  locationsSave: 'locations:save',
   progressSave: 'progress:save',
   settingsGet: 'settings:get',
   settingsSave: 'settings:save',
@@ -120,6 +122,9 @@ export interface MarkReaderApi {
   commitImport(id: string, payload: CommitPayload): Promise<Book>
   abortImport(id: string): Promise<void>
   deleteBook(id: string): Promise<void>
+  /** 读 EPUB 位置索引（epub.js 的 locations.save() 产物）。未生成时为 null */
+  getLocations(id: string): Promise<string | null>
+  saveLocations(id: string, json: string): Promise<void>
   saveProgress(id: string, progress: ReadingProgress): Promise<void>
   getSettings(): Promise<ReaderSettings>
   saveSettings(settings: ReaderSettings): Promise<void>

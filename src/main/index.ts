@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { registerAppScheme, registerAppProtocol } from './protocol'
 import { createContext } from './services/context'
 import { registerLibraryIpc } from './ipc/library'
+import { registerReaderIpc } from './ipc/reader'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -60,7 +61,21 @@ if (!app.requestSingleInstanceLock()) {
     const ctx = await createContext(app.getPath('userData'))
     registerAppProtocol(ctx.paths.root)
     registerLibraryIpc(ctx)
+    registerReaderIpc(ctx)
     createWindow()
+
+    // 仓储是「内存持有 + 防抖落盘」（§4.3），不拦这一下的话，退出前最后
+    // 几秒的改动会随进程一起消失。before-quit 是同步的，不能直接 await，
+    // 走「拦一次 → 落盘 → 再退」。
+    let flushed = false
+    app.on('before-quit', (event) => {
+      if (flushed) return
+      event.preventDefault()
+      void ctx.repo.flush().finally(() => {
+        flushed = true
+        app.quit()
+      })
+    })
   })
 
   app.on('window-all-closed', () => {

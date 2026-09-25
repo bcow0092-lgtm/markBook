@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { importBookFlow, titleFromFileName } from '../../src/renderer/src/lib/import'
 import { extractEpubMeta } from '../../src/renderer/src/lib/epubMeta'
+import { makeApi as makeBaseApi } from './makeApi'
 import type { Book, CommitPayload, ImportResult, MarkReaderApi } from '@shared/types'
 
 /**
@@ -27,25 +28,15 @@ const TXT_RESULT: ImportResult = {
   sourceEncoding: 'GB18030',
 }
 
-function makeApi(overrides: Partial<MarkReaderApi> = {}): MarkReaderApi {
-  return {
-    listBooks: vi.fn(async () => []),
+/** 本文件特有的默认值：导入默认返回一本 TXT，提交原样回传载荷 */
+const makeApi = (overrides: Partial<MarkReaderApi> = {}): MarkReaderApi =>
+  makeBaseApi({
     importBook: vi.fn(async () => TXT_RESULT),
     commitImport: vi.fn(
       async (_id: string, payload: CommitPayload) => ({ ...payload, id: 'id1' }) as unknown as Book,
     ),
-    abortImport: vi.fn(async () => {}),
-    deleteBook: vi.fn(async () => {}),
-    saveProgress: vi.fn(async () => {}),
-    getSettings: vi.fn(async () => ({
-      fontSize: 18,
-      lineHeight: 1.8,
-      pageMargin: 'medium' as const,
-    })),
-    saveSettings: vi.fn(async () => {}),
     ...overrides,
-  }
-}
+  })
 
 describe('titleFromFileName（渲染进程侧）', () => {
   it('与主进程同一规则：去路径、去扩展名', () => {
