@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Book, ReadingProgress } from '@shared/types'
 import { createEpubEngine } from '../../components/reader/EpubEngine'
+import { createTxtEngine } from '../../components/reader/TxtEngine'
 import type { ReaderEngine } from '../../components/reader/engine'
 import type { IndexedTocEntry } from '../../lib/readerProgress'
 import { createProgressSaver, type ProgressSaver } from '../../lib/progressSaver'
@@ -45,10 +46,14 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
     const saver = createProgressSaver(window.api, b.id)
     saverRef.current = saver
 
-    const engine = createEpubEngine({
+    // 两种格式共用同一套界面与进度逻辑，差异全部封在引擎里（§5.7）
+    const isEpub = b.format === 'epub'
+    const engine = (isEpub ? createEpubEngine : createTxtEngine)({
       container,
-      loadLocations: () => window.api.getLocations(b.id),
-      saveLocations: (json) => window.api.saveLocations(b.id, json),
+      // 只有 EPUB 需要位置索引；TXT 的进度直接由字符偏移算出。
+      // 传 undefined 而不是空函数 —— 让「谁需要它」这件事在调用点就看得出来
+      loadLocations: isEpub ? () => window.api.getLocations(b.id) : undefined,
+      saveLocations: isEpub ? (json) => window.api.saveLocations(b.id, json) : undefined,
       callbacks: {
         onRelocated(p) {
           setPercentage(p.percentage)
