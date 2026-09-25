@@ -5,8 +5,10 @@ import { createTxtEngine } from '../../components/reader/TxtEngine'
 import type { ReaderEngine } from '../../components/reader/engine'
 import type { IndexedTocEntry } from '../../lib/readerProgress'
 import { createProgressSaver, type ProgressSaver } from '../../lib/progressSaver'
+import { createSettingsSaver, useSettingsStore } from '../../store/settings'
 import { ClickZones } from '../../components/reader/ClickZones'
 import { ProgressBar } from '../../components/reader/ProgressBar'
+import { SettingsPanel } from '../../components/reader/SettingsPanel'
 import { TocPanel } from '../../components/reader/TocPanel'
 import { ReaderToolbar } from '../../components/reader/ReaderToolbar'
 
@@ -27,6 +29,13 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
   const [exact, setExact] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(true)
   const [tocOpen, setTocOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const settings = useSettingsStore((s) => s.settings)
+  const loadSettings = useSettingsStore((s) => s.load)
+  const setSettings = useSettingsStore((s) => s.set)
+  const settingsSaverRef = useRef(createSettingsSaver(window.api))
 
   // 回调走 ref，effect 的依赖只留 book.id。
   //
@@ -37,6 +46,19 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
   onProgressRef.current = onProgress
   const bookRef = useRef(book)
   bookRef.current = book
+
+  // 设置也一样：进 load effect 的要用 ref，否则改字号会重建引擎
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+
+  useEffect(() => {
+    void loadSettings()
+  }, [loadSettings])
+
+  // 设置一变就应用。引擎的 applySettings 内部负责「存位置 → 应用 → 恢复」
+  useEffect(() => {
+    engineRef.current?.applySettings(settings)
+  }, [settings])
 
   useEffect(() => {
     const container = containerRef.current
@@ -68,15 +90,21 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
     })
     engineRef.current = engine
 
-    engine.load(b, b.progress?.location ?? null).catch((err) => {
-      console.error('[reader] 打开失败', err)
-    })
+    engine
+      .load(b, b.progress?.location ?? null)
+      // 书加载完再应用设置：此时引擎才有 rendition / columns 可写
+      .then(() => engine.applySettings(settingsRef.current))
+      .catch((err: unknown) => {
+        console.error('[reader] 打开失败', err)
+        setLoadError(err instanceof Error ? err.message : String(err))
+      })
 
     const onResize = (): void => engine.resize()
     const onBeforeUnload = (): void => {
       // 尽力而为：异步 IPC 在 beforeunload 里不保证送达，真正的兜底是
-      // 1 秒的防抖窗口（技术方案 §5.5）
+      // 防抖窗口本身很短（进度 1s、设置 300ms）
       void saver.flush()
+      void settingsSaverRef.current.flush()
     }
     window.addEventListener('resize', onResize)
     window.addEventListener('beforeunload', onBeforeUnload)
@@ -85,6 +113,7 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('beforeunload', onBeforeUnload)
       void saver.flush()
+      void settingsSaverRef.current.flush()
       saver.dispose()
       engine.destroy()
       engineRef.current = null
@@ -108,10 +137,17 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  /** 先把进度落盘再退出，否则回到书架时角标与排序还是旧的 */
+  /** 先把进度与设置落盘再退出，否则回到书架时角标与排序还是旧的 */
   const handleBack = async (): Promise<void> => {
     await saverRef.current?.flush()
+    await settingsSaverRef.current.flush()
     onBack()
+  }
+
+  /** 设置改动即时应用（用户要立刻看到反馈），写盘做防抖 */
+  const handleSettingsChange = (next: typeof settings): void => {
+    setSettings(next)
+    settingsSaverRef.current.push(next)
   }
 
   return (
@@ -129,9 +165,10 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
         chapterTitle={chapterTitle}
         onBack={() => void handleBack()}
         onOpenToc={() => setTocOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      {controlsVisible && (
+      {controlsVisible && !settingsOpen && (
         <div className="absolute inset-x-0 bottom-0">
           <ProgressBar
             value={percentage}
@@ -139,6 +176,30 @@ export function ReaderPage({ book, onBack, onProgress }: Props) {
             onPreview={setPercentage}
             onCommit={(p) => engineRef.current?.goToPercentage(p)}
           />
+        </div>
+      )}
+
+      {settingsOpen && (
+        <SettingsPanel
+          settings={settings}
+          onChange={handleSettingsChange}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {loadError && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-[var(--color-reader-bg)]">
+          <p className="text-sm text-[var(--color-reader-text)]">这本书打不开</p>
+          <p className="max-w-md text-center text-xs text-[var(--color-reader-muted)]">
+            {loadError}
+          </p>
+          <button
+            type="button"
+            onClick={onBack}
+            className="cursor-pointer rounded bg-[var(--color-reader-accent)] px-4 py-2 text-sm text-white"
+          >
+            返回书架
+          </button>
         </div>
       )}
 
