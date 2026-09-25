@@ -2,7 +2,12 @@ import { test, expect } from '@playwright/test'
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { launchApp, waitBookLoaded, waitForFile } from './helpers/app'
-import { FIXTURES, GBK_TXT } from './helpers/fixtures'
+import { ensureGbkFixture, FIXTURES, GBK_TXT } from './helpers/fixtures'
+
+// GBK 样本是 gitignore 的，CI 上不存在 —— 由测试自己生成，不依赖手工前置步骤
+test.beforeAll(() => {
+  ensureGbkFixture()
+})
 
 test('导入 GBK 编码的 TXT → 打开 → 中文不乱码', async () => {
   const app = await launchApp()
