@@ -42,4 +42,42 @@ jobs:
             release/*.exe
           if-no-files-found: error
 
-# E2E（§6.3 的 5 条）尚未接 —— 需要先把 Playwright 的测试基建搭起来，另起一轮。
+  e2e-p0:
+    # P0 两条在 push 到 main 时跑（§6.5）。PR 不跑 —— Windows runner 按 2 倍
+    # 计费，而 E2E 每次要起 Electron，放 PR 上会明显拖慢反馈
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # test:e2e 自带 npm run build —— 本地与 CI 共用同一入口，行为一致
+      - run: npm run test:e2e -- tests/e2e/p0.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-p0-report
+          path: test-results/
+          if-no-files-found: ignore
+
+  e2e-all:
+    # 全部 5 条场景只在手动档跑（§6.5）
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-all-report
+          path: test-results/
+          if-no-files-found: ignore
