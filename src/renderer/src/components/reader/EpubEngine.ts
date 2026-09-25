@@ -35,6 +35,10 @@ type RelocatedStart = { cfi?: string; index?: number; percentage?: number }
 type RelocatedLike = { start?: RelocatedStart }
 
 export function createEpubEngine(opts: EngineOptions): ReaderEngine {
+  // EngineOptions 里这两个是给 TXT 省掉的，EPUB 一定要用，这里收成必有
+  const loadLocations = opts.loadLocations ?? (async () => null)
+  const saveLocations = opts.saveLocations ?? (async () => {})
+
   let book: ReturnType<typeof ePub> | null = null
   let rendition: ReturnType<ReturnType<typeof ePub>['renderTo']> | null = null
   let toc: IndexedTocEntry[] = []
@@ -88,7 +92,7 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
   async function setupLocations(): Promise<void> {
     const b = book
     if (!b) return
-    const saved = await opts.loadLocations().catch(() => null)
+    const saved = await loadLocations().catch(() => null)
     // await 之后必须重查 —— StrictMode 双挂载时，这个引擎可能已经被销毁了
     if (destroyed || book !== b) return
 
@@ -110,7 +114,7 @@ export function createEpubEngine(opts: EngineOptions): ReaderEngine {
         if (destroyed || book !== b) return
         indexReady = true
         reemitWithExactPercentage()
-        await opts.saveLocations(locationsOf(b).save()).catch(() => {})
+        await saveLocations(locationsOf(b).save()).catch(() => {})
       })
       .catch(() => {
         // 生成失败就一直是估算模式，不该让阅读本身崩掉

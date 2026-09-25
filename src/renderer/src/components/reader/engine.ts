@@ -33,10 +33,13 @@ export interface ReaderEngine {
 export interface EngineOptions {
   container: HTMLElement
   /**
-   * 位置索引的读写。注入进来而不是让引擎直接用 window.api —— 这样引擎
-   * 与 IPC 解耦，将来要换数据来源（比如 TXT 侧根本不需要索引）不必改它。
+   * 位置索引的读写，**仅 EPUB 需要** —— epub.js 要花几秒对全书分词才能算出
+   * 位置索引，结果值得缓存。TXT 的进度直接由字符偏移算出，用不上它。
+   *
+   * 注入进来而不是让引擎直接用 window.api：这样引擎与 IPC 解耦，换数据
+   * 来源时不必改它。
    */
-  loadLocations(): Promise<string | null>
-  saveLocations(json: string): Promise<void>
+  loadLocations?(): Promise<string | null>
+  saveLocations?(json: string): Promise<void>
   callbacks: ReaderEngineCallbacks
 }

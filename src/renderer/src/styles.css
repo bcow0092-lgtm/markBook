@@ -25,3 +25,25 @@ body {
   background: var(--color-shelf-bg);
   color: var(--color-reader-text);
 }
+
+/*
+  TXT 分页（技术方案 §5.4）。
+  三个约束缺一不可，M1 已实测确认：容器宽高各固定为一页、column-width 与
+  容器内容宽严格相等、column-fill: auto。改错任何一个都会分页错乱 ——
+  宽度与高度由 TxtEngine 在运行时写入，这里只定不变的部分。
+*/
+.txt-viewport {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.txt-columns {
+  column-fill: auto;
+}
+
+.txt-columns p {
+  margin: 0 0 0.8em;
+  text-indent: 2em;
+  line-height: 1.8;
+}
